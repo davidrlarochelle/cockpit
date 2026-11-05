@@ -14,8 +14,8 @@ export const DRAWING_SECTION = {
 export type Turn = { page: boolean; artifact: boolean; shown: boolean }
 
 export const freshTurn = (text = ''): Turn => ({
-  page: /\b(html|web ?page|terminal[- ]browser|browser pane)\b/i.test(text),
-  artifact: /\b(artifacts?|claude\.ai|shareable|share (it|this|that|the)|publish)\b/i.test(text),
+  page: /\b(html|web ?page|page web|terminal[- ]browser|browser pane)\b/i.test(text),
+  artifact: /\b(artifacts?|art[eé]facts?|claude\.ai|shareable|share (it|this|that|the)|publish|publie[rsz]?|partage[rz]?-(la|le|les)|(la|le|les) partager)\b|à partager/i.test(text),
   shown: false,
 })
 

@@ -30,6 +30,19 @@ test('an artifact is published only when asked for or after show', async () => {
   expect(artifactRefusal({ file_path: `${S}/signups.html` }, { ...turn, shown: true })).toBe(undefined)
 })
 
+test('a request written in French lets the page or the artifact through', async () => {
+  const command = `sh ~/.config/cockpit/herdr/browse.sh ${S}/signups.html`
+  const input = { file_path: `${S}/signups.html` }
+  expect(artifactRefusal(input, freshTurn('Publie la page des inscriptions'))).toBe(undefined)
+  expect(artifactRefusal(input, freshTurn('Fais-en un artefact pour Maya'))).toBe(undefined)
+  expect(artifactRefusal(input, freshTurn('Fais-en un artéfact pour Maya'))).toBe(undefined)
+  expect(artifactRefusal(input, freshTurn('Peux-tu la partager avec Sam ?'))).toBe(undefined)
+  expect(artifactRefusal(input, freshTurn('Je veux une page à partager avec Sam'))).toBe(undefined)
+  expect(artifactRefusal(input, freshTurn('Montre-moi les inscriptions de la semaine'))).toContain('mcp__cockpit__show')
+  expect(pageRefusal(command, freshTurn('Ouvre une page web des inscriptions'))).toBe(undefined)
+  expect(pageRefusal(command, freshTurn('Montre-moi les inscriptions de la semaine'))).toContain('mcp__cockpit__show')
+})
+
 test('charts take their new kinds and options, figures their items', async () => {
   const columns = ['lang', 'confirmed', 'not confirmed']
   const rows = [['fr', 9332, 1359], ['en', 7758, 932]]
