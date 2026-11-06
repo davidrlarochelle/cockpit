@@ -53,7 +53,9 @@ async function checkoutOf($: $, path: string): Promise<Work | null> {
 async function follow($: $, path: string) {
   const current = await read($, work)
   const found = await checkoutOf($, path)
-  if (found && (found.dir !== current?.dir || found.repo !== current.repo)) await update($, work, () => found)
+  if (!found || (found.dir === current?.dir && found.repo === current.repo)) return
+  // A checkout another lookup set while git ran is newer than this one: it stays.
+  await update($, work, now => (now?.dir === current?.dir && now?.repo === current?.repo ? found : now))
 }
 
 export async function trackWork($: $, args: Record<string, unknown>) {
