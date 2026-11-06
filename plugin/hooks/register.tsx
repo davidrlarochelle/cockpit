@@ -46,20 +46,18 @@ export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     stopTimers()
     const every = (ms: number, fn: () => void) => void timers.push($.clock.every(ms, fn))
-    await $.tool.register(REPORT_SPEC).catch(() => undefined)
-    await $.tool.register(SHOW_SPEC).catch(() => undefined)
-    await $.tool.register(SEARCH_SPEC).catch(() => undefined)
-    await $.tool.register(CHANGES_SPEC).catch(() => undefined)
-    await $.tool.register(READ_SPEC).catch(() => undefined)
-    await $.tool.register(HEALTH_SPEC).catch(() => undefined)
+    await Promise.all([REPORT_SPEC, SHOW_SPEC, SEARCH_SPEC, CHANGES_SPEC, READ_SPEC, HEALTH_SPEC].map(spec => $.tool.register(spec).catch(() => undefined)))
     // A background session only needs the tools: the session at the prompt refreshes and reports for it.
     if (await setBackground($, e.isInteractive)) return next(e)
     const fetches = !isBackgroundJob()
     const fetch = (ms: number, fn: () => void) => fetches && every(ms, fn)
-    await startCosts($).catch(() => undefined)
-    await seedWork($, e.cwd).catch(() => undefined)
-    await $.command.register({ name: 'todo', description: 'Add to the to-do list in the herdr to-do space; alone, list it', argumentHint: '[text]' })
-    await registerSettingsCommand($)
+    await Promise.all([
+      $.command.register({ name: 'todo', description: 'Add to the to-do list in the herdr to-do space; alone, list it', argumentHint: '[text]' }),
+      registerSettingsCommand($),
+    ])
+    // The session starts without waiting on these: the cost baseline and the checkout lookup run git and engine calls.
+    void startCosts($).catch(() => undefined)
+    const seeded = seedWork($, e.cwd).catch(() => undefined)
     fetch(60_000, () => void refreshMail($).catch(() => undefined))
     fetch(60_000, () => void refresh($, false).then(() => maybeBrief($)).catch(() => undefined))
     fetch(60_000, () => void refreshCi($).catch(() => undefined))
@@ -97,19 +95,20 @@ export const register: Register = on => {
       await reportFacts($, here).catch(() => undefined)
     }
     every(60_000, () => void beat().catch(() => undefined))
-    void beat().catch(() => undefined)
+    void seeded.then(beat).catch(() => undefined)
     every(3600_000, () => void checkUpdate($).catch(() => undefined))
     void checkUpdate($).catch(() => undefined)
     if (fetches) {
-      void refreshCi($).catch(() => undefined)
-      void refresh($, false).catch(() => undefined)
+      void seeded.then(() => refreshCi($)).catch(() => undefined)
+      void seeded.then(() => refresh($, false)).catch(() => undefined)
     }
     $.ui.status(undefined)
-    void refreshLinks($).catch(() => undefined)
+    void seeded.then(() => refreshLinks($)).catch(() => undefined)
     void reportSide($).catch(() => undefined)
     // Draw the agent row now, not after the next turn. A resumed session has no
     // figure until its first response, so the window is estimated locally until then.
     void (async () => {
+      await seeded
       const u = await $.session.usage()
       const percent = u.context.percent ?? (await $.session.usage({ breakdown: 'summary' })).context.breakdown?.percentage
       await reportUsage($, { ...u, context: { ...u.context, percent }, changed: [] })
