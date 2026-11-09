@@ -5,7 +5,7 @@ import { activityOf, logActivity } from './activity'
 import { maybeBrief } from './brief'
 import { processRequests, refreshCi } from './ci'
 import { recordCost, startCosts } from './costs'
-import { DRAWING_SECTION, artifactRefusal, freshTurn, pageRefusal } from './drawing'
+import { DRAWING_SECTION, artifactRefusal, freshTurn, nextTurn, pageRefusal } from './drawing'
 import { forgetFacts, reportFacts } from './facts'
 import { cacheDir, home } from './config'
 import { refreshMail } from './mail'
@@ -201,7 +201,7 @@ export const register: Register = on => {
   })
 
   on('prompt.submit', async ($, e, next) => {
-    if (!e.command) turn = freshTurn(e.text)
+    if (!e.command) turn = nextTurn(turn, e)
     void refreshLinks($, e.text).catch(() => undefined)
     void hereSoon($).then(here => bindHandoff($, e.text, here?.pane, e.origin?.kind === 'plugin')).catch(() => undefined)
     const page = e.command || e.origin?.kind !== 'composer' ? [] : await pageContext($)

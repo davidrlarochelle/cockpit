@@ -14,10 +14,25 @@ export const DRAWING_SECTION = {
 export type Turn = { page: boolean; artifact: boolean; shown: boolean }
 
 export const freshTurn = (text = ''): Turn => ({
-  page: /\b(html|web ?page|terminal[- ]browser|browser pane)\b/i.test(text),
-  artifact: /\b(artifacts?|claude\.ai|shareable|share (it|this|that|the)|publish)\b/i.test(text),
+  page: /\b(html|web ?page|page web|terminal[- ]browser|browser pane)\b/i.test(text),
+  artifact: /\b(artifacts?|art[eé]facts?|claude\.ai|shareable|share (it|this|that|the)|publish|publie[rsz]?|partage[rz]?-(la|le|les)|(la|le|les) partager)\b|à partager/i.test(text),
   shown: false,
 })
+
+// Origins whose text the person wrote. A notification, a peer or another plugin may still ask, but clears nothing.
+const WRITTEN = new Set(['composer', 'bridge', 'sdk', 'scheduled-trigger', 'channel', 'slack-ping'])
+
+export type Prompt = { text: string; origin?: { kind: string; name?: string; asUser?: true }; turnId?: string }
+
+const writtenByPerson = ({ origin }: Prompt) =>
+  !origin || WRITTEN.has(origin.kind) || (origin.kind === 'plugin' && (origin.asUser === true || origin.name === 'cockpit'))
+
+/** The turn a prompt starts: fresh when the person wrote it, else the last one with what this prompt asks added. */
+export const nextTurn = (previous: Turn, prompt: Prompt): Turn => {
+  const asked = freshTurn(prompt.text)
+  if (writtenByPerson(prompt) && prompt.turnId === undefined) return asked
+  return { page: previous.page || asked.page, artifact: previous.artifact || asked.artifact, shown: previous.shown }
+}
 
 const FALLBACK = /\bCOCKPIT_SHOW_FALLBACK=("[^"]+"|'[^']+'|\S+)/
 
