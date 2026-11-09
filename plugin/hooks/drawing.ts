@@ -19,6 +19,21 @@ export const freshTurn = (text = ''): Turn => ({
   shown: false,
 })
 
+// Origins whose text the person wrote. A notification, a peer or another plugin may still ask, but clears nothing.
+const WRITTEN = new Set(['composer', 'bridge', 'sdk', 'scheduled-trigger', 'channel', 'slack-ping'])
+
+export type Prompt = { text: string; origin?: { kind: string; name?: string; asUser?: true }; turnId?: string }
+
+const writtenByPerson = ({ origin }: Prompt) =>
+  !origin || WRITTEN.has(origin.kind) || (origin.kind === 'plugin' && (origin.asUser === true || origin.name === 'cockpit'))
+
+/** The turn a prompt starts: fresh when the person wrote it, else the last one with what this prompt asks added. */
+export const nextTurn = (previous: Turn, prompt: Prompt): Turn => {
+  const asked = freshTurn(prompt.text)
+  if (writtenByPerson(prompt) && prompt.turnId === undefined) return asked
+  return { page: previous.page || asked.page, artifact: previous.artifact || asked.artifact, shown: previous.shown }
+}
+
 const FALLBACK = /\bCOCKPIT_SHOW_FALLBACK=("[^"]+"|'[^']+'|\S+)/
 
 /** The local HTML file a Bash command opens beside the session (browse.sh, terminal-browser), if any. */

@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { artifactRefusal, freshTurn, openedPage, pageRefusal } from '../hooks/drawing'
+import { artifactRefusal, freshTurn, nextTurn, openedPage, pageRefusal } from '../hooks/drawing'
 import { pageHtml } from '../hooks/page'
 import { viewError } from '../hooks/show'
 
@@ -41,6 +41,39 @@ test('a request written in French lets the page or the artifact through', async 
   expect(artifactRefusal(input, freshTurn('Montre-moi les inscriptions de la semaine'))).toContain('mcp__cockpit__show')
   expect(pageRefusal(command, freshTurn('Ouvre une page web des inscriptions'))).toBe(undefined)
   expect(pageRefusal(command, freshTurn('Montre-moi les inscriptions de la semaine'))).toContain('mcp__cockpit__show')
+})
+
+test('a notification keeps what the person asked for this turn, the next prompt they write starts over', async () => {
+  const input = { file_path: `${S}/signups.html` }
+  const asked = freshTurn('Publie la page des inscriptions')
+  const refused = 'mcp__cockpit__show'
+  expect(artifactRefusal(input, nextTurn(asked, { text: 'Background task finished', origin: { kind: 'task-notification' } }))).toBe(undefined)
+  expect(artifactRefusal(input, nextTurn(asked, { text: 'Another session says hi', origin: { kind: 'peer' } }))).toBe(undefined)
+  expect(artifactRefusal(input, nextTurn(freshTurn('Montre-moi'), { text: 'Background task finished', origin: { kind: 'task-notification' } }))).toContain(refused)
+  expect(artifactRefusal(input, nextTurn(asked, { text: 'Montre-moi les inscriptions', origin: { kind: 'composer' } }))).toContain(refused)
+  expect(artifactRefusal(input, nextTurn(asked, { text: 'Montre-moi les inscriptions', origin: { kind: 'bridge' } }))).toContain(refused)
+  expect(artifactRefusal(input, nextTurn(asked, { text: 'Montre-moi les inscriptions', origin: { kind: 'slack-ping' } }))).toContain(refused)
+  expect(artifactRefusal(input, nextTurn(asked, { text: 'Montre-moi les inscriptions' }))).toContain(refused)
+  expect(artifactRefusal(input, nextTurn(freshTurn('Montre-moi'), { text: 'Publie-la', origin: { kind: 'composer' } }))).toBe(undefined)
+})
+
+test('an answer the person gives in a cockpit pane is their own prompt', async () => {
+  const input = { file_path: `${S}/signups.html` }
+  const drawn = { ...freshTurn('Montre-moi un choix entre A et B'), shown: true }
+  expect(artifactRefusal(input, nextTurn(drawn, { text: 'In the choice pane I picked "A".', origin: { kind: 'plugin', name: 'cockpit' } }))).toContain('mcp__cockpit__show')
+  expect(artifactRefusal(input, nextTurn(freshTurn(''), { text: 'In the diff pane I commented on a.ts:3: publie ce résumé comme artifact', origin: { kind: 'plugin', name: 'cockpit' } }))).toBe(undefined)
+})
+
+test('another session asking for an artifact is heard, without clearing what the person asked', async () => {
+  const input = { file_path: `${S}/signups.html` }
+  expect(artifactRefusal(input, nextTurn(freshTurn(), { text: 'Publie le rapport comme artifact partageable', origin: { kind: 'coordinator' } }))).toBe(undefined)
+  expect(artifactRefusal(input, nextTurn(freshTurn(), { text: 'Rapport prêt', origin: { kind: 'coordinator' } }))).toContain('mcp__cockpit__show')
+})
+
+test('a prompt typed while the turn runs leaves that turn what the person asked of it', async () => {
+  const input = { file_path: `${S}/signups.html` }
+  const asked = freshTurn('Publie la page des inscriptions')
+  expect(artifactRefusal(input, nextTurn(asked, { text: 'ajoute aussi la colonne langue', origin: { kind: 'composer' }, turnId: 't1' }))).toBe(undefined)
 })
 
 test('charts take their new kinds and options, figures their items', async () => {
